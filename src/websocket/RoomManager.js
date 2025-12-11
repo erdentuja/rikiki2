@@ -18,8 +18,7 @@ class RoomManager {
      */
     async getSettings() {
         try {
-            // WordPress wp_ prefixet használ
-            const [rows] = await pool.execute('SELECT setting_key, setting_value FROM wp_rikiki_settings');
+            const [rows] = await pool.execute('SELECT setting_key, setting_value FROM rikiki_settings');
             const settings = {};
             for (const row of rows) {
                 settings[row.setting_key] = row.setting_value;
@@ -115,7 +114,7 @@ class RoomManager {
         const playerId = `player_${userId}`;
         game.addPlayer({
             id: playerId,
-            wpUserId: userId,
+            odayId: userId,
             name: userName,
             isAI: false
         });
@@ -146,7 +145,7 @@ class RoomManager {
 
         room.game.addPlayer({
             id: playerId,
-            wpUserId: userId,
+            odayId: userId,
             name: userName,
             isAI: false
         });
@@ -338,7 +337,7 @@ class RoomManager {
     async saveRoomToDb(room) {
         try {
             await pool.execute(
-                `INSERT INTO wp_rikiki_rooms (room_code, status, player_count, max_rounds)
+                `INSERT INTO rikiki_rooms (room_code, status, player_count, max_rounds)
                  VALUES (?, 'waiting', ?, ?)`,
                 [room.code, room.game.playerCount, room.game.maxRounds]
             );
@@ -353,7 +352,7 @@ class RoomManager {
     async updateRoomInDb(room) {
         try {
             await pool.execute(
-                `UPDATE wp_rikiki_rooms SET status = ?, current_round = ? WHERE room_code = ?`,
+                `UPDATE rikiki_rooms SET status = ?, current_round = ? WHERE room_code = ?`,
                 [room.game.status, room.game.currentRound, room.code]
             );
         } catch (error) {
@@ -364,14 +363,15 @@ class RoomManager {
     /**
      * Felhasználói statisztikák frissítése
      */
-    async updateUserStats(userId, score, position, totalPlayers) {
+    async updateUserStats(userId, userName, score, position, totalPlayers) {
         try {
             const isWinner = position === 1;
 
             await pool.execute(`
-                INSERT INTO wp_rikiki_user_stats (user_id, games_played, games_won, total_score, highest_score, rank_points)
-                VALUES (?, 1, ?, ?, ?, ?)
+                INSERT INTO rikiki_user_stats (user_id, user_name, games_played, games_won, total_score, highest_score, rank_points)
+                VALUES (?, ?, 1, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
+                    user_name = VALUES(user_name),
                     games_played = games_played + 1,
                     games_won = games_won + ?,
                     total_score = total_score + ?,
@@ -379,6 +379,7 @@ class RoomManager {
                     rank_points = rank_points + ?
             `, [
                 userId,
+                userName,
                 isWinner ? 1 : 0,
                 score,
                 score,

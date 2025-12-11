@@ -44,7 +44,7 @@ wss.on('connection', (ws, req) => {
 
             switch (data.type) {
                 case 'auth':
-                    // Felhasználó azonosítása (WP user ID)
+                    // Felhasználó azonosítása
                     userId = data.userId;
                     const userName = data.userName || `Játékos_${userId}`;
 
@@ -307,7 +307,7 @@ wss.on('close', () => {
 async function getUserStats(userId) {
     try {
         const [rows] = await pool.execute(
-            `SELECT * FROM wp_rikiki_user_stats WHERE user_id = ?`,
+            `SELECT * FROM rikiki_user_stats WHERE user_id = ?`,
             [userId]
         );
         return rows[0] || {
@@ -330,16 +330,15 @@ async function getLeaderboard() {
     try {
         const [rows] = await pool.execute(`
             SELECT
-                rus.user_id,
-                wu.display_name,
-                rus.games_played,
-                rus.games_won,
-                rus.total_score,
-                rus.highest_score,
-                rus.rank_points
-            FROM wp_rikiki_user_stats rus
-            LEFT JOIN wp_users wu ON rus.user_id = wu.ID
-            ORDER BY rus.rank_points DESC
+                user_id,
+                user_name as display_name,
+                games_played,
+                games_won,
+                total_score,
+                highest_score,
+                rank_points
+            FROM rikiki_user_stats
+            ORDER BY rank_points DESC
             LIMIT 50
         `);
         return rows;

@@ -1,6 +1,6 @@
 const Game = require('../game/Game');
 const AIPlayer = require('../ai/AIPlayer');
-const { pool } = require('../../config/database');
+const { db } = require('../../config/database');
 const { v4: uuidv4 } = require('uuid');
 
 /**
@@ -18,7 +18,7 @@ class RoomManager {
      */
     async getSettings() {
         try {
-            const [rows] = await pool.execute('SELECT setting_key, setting_value FROM rikiki_settings');
+            const rows = db.prepare('SELECT setting_key, setting_value FROM rikiki_settings').all();
             const settings = {};
             for (const row of rows) {
                 settings[row.setting_key] = row.setting_value;
@@ -132,7 +132,7 @@ class RoomManager {
         this.playerRooms.set(userId, roomCode);
 
         // Adatbázisba mentés
-        await this.saveRoomToDb(room);
+        this.saveRoomToDb(room);
 
         return { room, playerId };
     }
@@ -155,7 +155,7 @@ class RoomManager {
         this.playerRooms.set(userId, room.code);
 
         // Adatbázis frissítése
-        await this.updateRoomInDb(room);
+        this.updateRoomInDb(room);
 
         return { room, playerId };
     }
@@ -191,7 +191,7 @@ class RoomManager {
         const gameState = room.game.start();
 
         // Adatbázis frissítése
-        await this.updateRoomInDb(room);
+        this.updateRoomInDb(room);
 
         // AI lépések ütemezése ha AI kezd
         this.scheduleAIMove(room);
@@ -334,13 +334,12 @@ class RoomManager {
     /**
      * Szoba mentése adatbázisba
      */
-    async saveRoomToDb(room) {
+    saveRoomToDb(room) {
         try {
-            await pool.execute(
-                `INSERT INTO rikiki_rooms (room_code, status, player_count, max_rounds)
-                 VALUES (?, 'waiting', ?, ?)`,
-                [room.code, room.game.playerCount, room.game.maxRounds]
-            );
+            db.prepare(`
+                INSERT INTO rikiki_rooms (room_code, status, player_count, max_rounds)
+                VALUES (?, 'waiting', ?, ?)
+            `).run(room.code, room.game.playerCount, room.game.maxRounds);
         } catch (error) {
             console.error('Szoba mentési hiba:', error);
         }
@@ -349,12 +348,11 @@ class RoomManager {
     /**
      * Szoba frissítése adatbázisban
      */
-    async updateRoomInDb(room) {
+    updateRoomInDb(room) {
         try {
-            await pool.execute(
-                `UPDATE rikiki_rooms SET status = ?, current_round = ? WHERE room_code = ?`,
-                [room.game.status, room.game.currentRound, room.code]
-            );
+            db.prepare(`
+                UPDATE rikiki_rooms SET status = ?, current_round = ? WHERE room_code = ?
+            `).run(room.game.status, room.game.currentRound, room.code);
         } catch (error) {
             console.error('Szoba frissítési hiba:', error);
         }
@@ -363,32 +361,32 @@ class RoomManager {
     /**
      * Felhasználói statisztikák frissítése
      */
-    async updateUserStats(userId, userName, score, position, totalPlayers) {
+    updateUserStats(userId, userName, score, position, totalPlayers) {
         try {
             const isWinner = position === 1;
+            const rankPoints = this.calculateRankPoints(position, totalPlayers);
 
-            await pool.execute(`
-                INSERT INTO rikiki_user_stats (user_id, user_name, games_played, games_won, total_score, highest_score, rank_points)
-                VALUES (?, ?, 1, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    user_name = VALUES(user_name),
-                    games_played = games_played + 1,
-                    games_won = games_won + ?,
-                    total_score = total_score + ?,
-                    highest_score = GREATEST(highest_score, ?),
-                    rank_points = rank_points + ?
-            `, [
-                userId,
-                userName,
-                isWinner ? 1 : 0,
-                score,
-                score,
-                this.calculateRankPoints(position, totalPlayers),
-                isWinner ? 1 : 0,
-                score,
-                score,
-                this.calculateRankPoints(position, totalPlayers)
-            ]);
+            // Ellenőrizzük létezik-e
+            const existing = db.prepare('SELECT id FROM rikiki_user_stats WHERE user_id = ?').get(userId);
+
+            if (existing) {
+                db.prepare(`
+                    UPDATE rikiki_user_stats SET
+                        user_name = ?,
+                        games_played = games_played + 1,
+                        games_won = games_won + ?,
+                        total_score = total_score + ?,
+                        highest_score = MAX(highest_score, ?),
+                        rank_points = rank_points + ?,
+                        updated_at = datetime('now')
+                    WHERE user_id = ?
+                `).run(userName, isWinner ? 1 : 0, score, score, rankPoints, userId);
+            } else {
+                db.prepare(`
+                    INSERT INTO rikiki_user_stats (user_id, user_name, games_played, games_won, total_score, highest_score, rank_points)
+                    VALUES (?, ?, 1, ?, ?, ?, ?)
+                `).run(userId, userName, isWinner ? 1 : 0, score, score, 1000 + rankPoints);
+            }
         } catch (error) {
             console.error('Statisztika frissítési hiba:', error);
         }

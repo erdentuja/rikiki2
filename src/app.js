@@ -5,12 +5,19 @@ const bcrypt = require('bcrypt');
 const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
-const { initDatabase, pool } = require('../config/database');
+const fs = require('fs');
+const { db, initDatabase } = require('../config/database');
 const RoomManager = require('./websocket/RoomManager');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const WS_PORT = process.env.WS_PORT || 3002;
+
+// Data mappa létrehozása
+const dataDir = path.join(__dirname, '../data');
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+}
 
 // Middleware
 app.use(express.json());
@@ -98,12 +105,9 @@ app.post('/api/register', async (req, res) => {
         }
 
         // Ellenőrzés: létezik-e már
-        const [existing] = await pool.execute(
-            'SELECT id FROM rikiki_users WHERE username = ?',
-            [username]
-        );
+        const existing = db.prepare('SELECT id FROM rikiki_users WHERE username = ?').get(username);
 
-        if (existing.length > 0) {
+        if (existing) {
             return res.status(400).json({ error: 'Ez a felhasználónév már foglalt!' });
         }
 
@@ -111,10 +115,8 @@ app.post('/api/register', async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Felhasználó létrehozása
-        const [result] = await pool.execute(
-            'INSERT INTO rikiki_users (username, password, display_name) VALUES (?, ?, ?)',
-            [username, hashedPassword, displayName]
-        );
+        db.prepare('INSERT INTO rikiki_users (username, password, display_name) VALUES (?, ?, ?)')
+            .run(username, hashedPassword, displayName);
 
         res.json({ success: true, message: 'Sikeres regisztráció!' });
 
@@ -134,16 +136,11 @@ app.post('/api/login', async (req, res) => {
         }
 
         // Felhasználó keresése
-        const [users] = await pool.execute(
-            'SELECT * FROM rikiki_users WHERE username = ?',
-            [username]
-        );
+        const user = db.prepare('SELECT * FROM rikiki_users WHERE username = ?').get(username);
 
-        if (users.length === 0) {
+        if (!user) {
             return res.status(401).json({ error: 'Hibás felhasználónév vagy jelszó!' });
         }
-
-        const user = users[0];
 
         // Jelszó ellenőrzés
         const validPassword = await bcrypt.compare(password, user.password);
@@ -153,10 +150,7 @@ app.post('/api/login', async (req, res) => {
         }
 
         // Utolsó bejelentkezés frissítése
-        await pool.execute(
-            'UPDATE rikiki_users SET last_login = NOW() WHERE id = ?',
-            [user.id]
-        );
+        db.prepare('UPDATE rikiki_users SET last_login = datetime("now") WHERE id = ?').run(user.id);
 
         // Session beállítása
         req.session.user = {
@@ -194,9 +188,9 @@ app.get('/api/me', requireAuth, (req, res) => {
 });
 
 // Ranglista
-app.get('/api/leaderboard', async (req, res) => {
+app.get('/api/leaderboard', (req, res) => {
     try {
-        const [rows] = await pool.execute(`
+        const rows = db.prepare(`
             SELECT
                 user_id,
                 user_name as display_name,
@@ -208,7 +202,7 @@ app.get('/api/leaderboard', async (req, res) => {
             FROM rikiki_user_stats
             ORDER BY rank_points DESC
             LIMIT 50
-        `);
+        `).all();
         res.json(rows);
     } catch (error) {
         console.error('Ranglista hiba:', error);
@@ -219,9 +213,9 @@ app.get('/api/leaderboard', async (req, res) => {
 // ============== ADMIN API ==============
 
 // Beállítások lekérdezése
-app.get('/api/admin/settings', requireAdmin, async (req, res) => {
+app.get('/api/admin/settings', requireAdmin, (req, res) => {
     try {
-        const [rows] = await pool.execute('SELECT * FROM rikiki_settings');
+        const rows = db.prepare('SELECT * FROM rikiki_settings').all();
         const settings = {};
         for (const row of rows) {
             settings[row.setting_key] = row.setting_value;
@@ -237,11 +231,10 @@ app.post('/api/admin/settings', requireAdmin, async (req, res) => {
     try {
         const settings = req.body;
 
+        const updateStmt = db.prepare('UPDATE rikiki_settings SET setting_value = ? WHERE setting_key = ?');
+
         for (const [key, value] of Object.entries(settings)) {
-            await pool.execute(
-                'UPDATE rikiki_settings SET setting_value = ? WHERE setting_key = ?',
-                [value.toString(), key]
-            );
+            updateStmt.run(value.toString(), key);
         }
 
         // Értesítjük a RoomManager-t a változásról
@@ -254,13 +247,13 @@ app.post('/api/admin/settings', requireAdmin, async (req, res) => {
 });
 
 // Felhasználók listája
-app.get('/api/admin/users', requireAdmin, async (req, res) => {
+app.get('/api/admin/users', requireAdmin, (req, res) => {
     try {
-        const [rows] = await pool.execute(`
+        const rows = db.prepare(`
             SELECT id, username, display_name, is_admin, created_at, last_login
             FROM rikiki_users
             ORDER BY created_at DESC
-        `);
+        `).all();
         res.json(rows);
     } catch (error) {
         res.status(500).json({ error: 'Hiba történt' });
@@ -302,17 +295,12 @@ app.post('/api/admin/restart-all', requireAdmin, (req, res) => {
 async function createAdminUser() {
     try {
         // Ellenőrizzük, létezik-e már az admin
-        const [existing] = await pool.execute(
-            'SELECT id FROM rikiki_users WHERE username = ?',
-            ['Andriska']
-        );
+        const existing = db.prepare('SELECT id FROM rikiki_users WHERE username = ?').get('Andriska');
 
-        if (existing.length === 0) {
+        if (!existing) {
             const hashedPassword = await bcrypt.hash('p123', 10);
-            await pool.execute(
-                'INSERT INTO rikiki_users (username, password, display_name, is_admin) VALUES (?, ?, ?, ?)',
-                ['Andriska', hashedPassword, 'Andriska (Admin)', true]
-            );
+            db.prepare('INSERT INTO rikiki_users (username, password, display_name, is_admin) VALUES (?, ?, ?, ?)')
+                .run('Andriska', hashedPassword, 'Andriska (Admin)', 1);
             console.log('Admin felhasználó létrehozva: Andriska / p123');
         }
     } catch (error) {
@@ -495,17 +483,15 @@ wss.on('close', () => {
 
 // ============== SERVER START ==============
 
-initDatabase()
-    .then(async () => {
-        console.log('Adatbázis inicializálva!');
-        await createAdminUser();
+try {
+    initDatabase();
+    createAdminUser();
 
-        app.listen(PORT, () => {
-            console.log(`HTTP szerver fut: http://localhost:${PORT}`);
-            console.log(`WebSocket szerver fut: ws://localhost:${WS_PORT}`);
-        });
-    })
-    .catch(err => {
-        console.error('Indítási hiba:', err);
-        process.exit(1);
+    app.listen(PORT, () => {
+        console.log(`HTTP szerver fut: http://localhost:${PORT}`);
+        console.log(`WebSocket szerver fut: ws://localhost:${WS_PORT}`);
     });
+} catch (err) {
+    console.error('Indítási hiba:', err);
+    process.exit(1);
+}

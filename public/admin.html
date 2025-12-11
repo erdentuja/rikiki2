@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rikiki - Admin Panel</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background: rgba(220, 53, 69, 0.2);
+            border: 2px solid var(--danger);
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+
+        .admin-title {
+            font-size: 1.8rem;
+            color: var(--danger);
+        }
+
+        .admin-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .admin-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 25px;
+        }
+
+        .admin-card h3 {
+            color: var(--accent-color);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .setting-row:last-child {
+            border-bottom: none;
+        }
+
+        .setting-label {
+            color: var(--text-light);
+        }
+
+        .setting-input {
+            width: 100px;
+            padding: 8px 12px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            color: var(--text-light);
+            font-size: 1rem;
+            text-align: center;
+        }
+
+        .setting-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .setting-checkbox {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+        }
+
+        .stat-big {
+            font-size: 3rem;
+            color: var(--accent-color);
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .room-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .room-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .room-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+        }
+
+        .room-status.waiting {
+            background: rgba(255, 193, 7, 0.2);
+            color: var(--warning);
+        }
+
+        .room-status.playing {
+            background: rgba(40, 167, 69, 0.2);
+            color: var(--success);
+        }
+
+        .user-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .user-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .user-item.admin-user {
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .admin-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .message.success {
+            background: rgba(40, 167, 69, 0.2);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        .message.error {
+            background: rgba(220, 53, 69, 0.2);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+        }
+
+        @media (max-width: 600px) {
+            .admin-header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+
+            .admin-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <header class="admin-header">
+            <h1 class="admin-title">Admin Panel</h1>
+            <div>
+                <a href="/lobby" class="btn btn-secondary btn-small">Vissza a Lobbyba</a>
+                <button class="btn btn-secondary btn-small" onclick="logout()">Kijelentkezés</button>
+            </div>
+        </header>
+
+        <div id="message" class="message"></div>
+
+        <div class="admin-grid">
+            <!-- Játék beállítások -->
+            <div class="admin-card">
+                <h3>Játék beállítások</h3>
+                <div id="settings-form">
+                    <div class="setting-row">
+                        <span class="setting-label">Játékosok száma</span>
+                        <input type="number" class="setting-input" id="player_count" min="2" max="6" value="4">
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Maximum körök</span>
+                        <input type="number" class="setting-input" id="max_rounds" min="1" max="15" value="10">
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Gondolkodási idő (mp)</span>
+                        <input type="number" class="setting-input" id="thinking_time" min="10" max="120" value="30">
+                    </div>
+                    <div class="setting-row">
+                        <span class="setting-label">Egyenlő licitek engedélyezése</span>
+                        <input type="checkbox" class="setting-checkbox" id="allow_equal_bids">
+                    </div>
+                </div>
+                <div class="admin-actions">
+                    <button class="btn btn-primary" onclick="saveSettings()">Mentés</button>
+                </div>
+            </div>
+
+            <!-- Aktív szobák -->
+            <div class="admin-card">
+                <h3>Aktív szobák</h3>
+                <div class="stat-big" id="room-count">0</div>
+                <div class="room-list" id="room-list">
+                    <p style="color: var(--text-muted); text-align: center;">Nincs aktív szoba</p>
+                </div>
+                <div class="admin-actions">
+                    <button class="btn btn-secondary" onclick="loadRooms()">Frissítés</button>
+                    <button class="btn btn-danger" onclick="restartAll()">Összes játék újraindítása</button>
+                </div>
+            </div>
+
+            <!-- Felhasználók -->
+            <div class="admin-card" style="grid-column: span 2;">
+                <h3>Regisztrált felhasználók</h3>
+                <div class="user-list" id="user-list">
+                    <p style="color: var(--text-muted); text-align: center;">Betöltés...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function init() {
+            try {
+                // Ellenőrizzük, hogy admin-e
+                const res = await fetch('/api/me');
+                if (!res.ok) {
+                    window.location.href = '/login';
+                    return;
+                }
+
+                const data = await res.json();
+                if (!data.user.is_admin) {
+                    window.location.href = '/lobby';
+                    return;
+                }
+
+                // Adatok betöltése
+                await Promise.all([
+                    loadSettings(),
+                    loadRooms(),
+                    loadUsers()
+                ]);
+
+            } catch (error) {
+                console.error('Hiba:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        function showMessage(text, type) {
+            const el = document.getElementById('message');
+            el.textContent = text;
+            el.className = `message ${type}`;
+            el.style.display = 'block';
+
+            setTimeout(() => {
+                el.style.display = 'none';
+            }, 3000);
+        }
+
+        async function loadSettings() {
+            try {
+                const res = await fetch('/api/admin/settings');
+                const settings = await res.json();
+
+                document.getElementById('player_count').value = settings.player_count || 4;
+                document.getElementById('max_rounds').value = settings.max_rounds || 10;
+                document.getElementById('thinking_time').value = settings.thinking_time || 30;
+                document.getElementById('allow_equal_bids').checked = settings.allow_equal_bids === '1';
+
+            } catch (error) {
+                console.error('Beállítások betöltési hiba:', error);
+            }
+        }
+
+        async function saveSettings() {
+            try {
+                const settings = {
+                    player_count: document.getElementById('player_count').value,
+                    max_rounds: document.getElementById('max_rounds').value,
+                    thinking_time: document.getElementById('thinking_time').value,
+                    allow_equal_bids: document.getElementById('allow_equal_bids').checked ? '1' : '0'
+                };
+
+                const res = await fetch('/api/admin/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
+
+                if (res.ok) {
+                    showMessage('Beállítások mentve!', 'success');
+                } else {
+                    showMessage('Hiba történt!', 'error');
+                }
+
+            } catch (error) {
+                showMessage('Hálózati hiba!', 'error');
+            }
+        }
+
+        async function loadRooms() {
+            try {
+                const res = await fetch('/api/admin/rooms');
+                const data = await res.json();
+
+                document.getElementById('room-count').textContent = data.count;
+
+                const list = document.getElementById('room-list');
+
+                if (data.rooms.length === 0) {
+                    list.innerHTML = '<p style="color: var(--text-muted); text-align: center;">Nincs aktív szoba</p>';
+                } else {
+                    list.innerHTML = data.rooms.map(room => `
+                        <div class="room-item">
+                            <span>${room.code}</span>
+                            <span>${room.humanPlayers}/${room.players} játékos</span>
+                            <span class="room-status ${room.status}">${room.status}</span>
+                        </div>
+                    `).join('');
+                }
+
+            } catch (error) {
+                console.error('Szobák betöltési hiba:', error);
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const res = await fetch('/api/admin/users');
+                const users = await res.json();
+
+                const list = document.getElementById('user-list');
+
+                if (users.length === 0) {
+                    list.innerHTML = '<p style="color: var(--text-muted); text-align: center;">Nincs regisztrált felhasználó</p>';
+                } else {
+                    list.innerHTML = users.map(user => `
+                        <div class="user-item ${user.is_admin ? 'admin-user' : ''}">
+                            <div>
+                                <strong>${user.display_name}</strong>
+                                <span style="color: var(--text-muted); margin-left: 10px;">@${user.username}</span>
+                                ${user.is_admin ? '<span style="color: var(--danger); margin-left: 10px;">[ADMIN]</span>' : ''}
+                            </div>
+                            <div style="color: var(--text-muted); font-size: 0.85rem;">
+                                ${user.last_login ? 'Utoljára: ' + new Date(user.last_login).toLocaleString('hu-HU') : 'Még nem lépett be'}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+
+            } catch (error) {
+                console.error('Felhasználók betöltési hiba:', error);
+            }
+        }
+
+        async function restartAll() {
+            if (!confirm('Biztosan újraindítod az összes játékot? Ez minden aktív játékot megszakít!')) {
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/admin/restart-all', { method: 'POST' });
+
+                if (res.ok) {
+                    showMessage('Összes játék újraindítva!', 'success');
+                    loadRooms();
+                } else {
+                    showMessage('Hiba történt!', 'error');
+                }
+
+            } catch (error) {
+                showMessage('Hálózati hiba!', 'error');
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login';
+            } catch (error) {
+                console.error('Kijelentkezési hiba:', error);
+            }
+        }
+
+        // Auto-refresh minden 30 másodpercben
+        setInterval(loadRooms, 30000);
+
+        init();
+    </script>
+</body>
+</html>

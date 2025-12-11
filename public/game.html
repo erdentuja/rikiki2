@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rikiki - Játék</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div id="rikiki-game" class="rikiki-game">
+        <div class="waiting-screen">
+            <div class="loading-spinner"></div>
+            <p>Csatlakozás...</p>
+        </div>
+    </div>
+
+    <script src="/js/game.js"></script>
+    <script>
+        async function init() {
+            try {
+                // Felhasználó adatok lekérése
+                const res = await fetch('/api/me');
+                if (!res.ok) {
+                    window.location.href = '/login';
+                    return;
+                }
+
+                const data = await res.json();
+                const user = data.user;
+
+                // WebSocket URL meghatározása
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsPort = 3002; // WebSocket port
+                const wsUrl = `${wsProtocol}//${window.location.hostname}:${wsPort}`;
+
+                // Játék inicializálása
+                initRikikiGame({
+                    userId: user.id,
+                    userName: user.displayName,
+                    wsUrl: wsUrl
+                });
+
+            } catch (error) {
+                console.error('Hiba:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

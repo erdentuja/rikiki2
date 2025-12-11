@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rikiki - Lobby</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .lobby-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .lobby-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+
+        .lobby-title {
+            font-size: 2rem;
+            color: var(--accent-color);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-name {
+            font-size: 1.1rem;
+        }
+
+        .lobby-content {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 30px;
+        }
+
+        .main-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .play-card {
+            background: linear-gradient(145deg, rgba(44, 85, 48, 0.6), rgba(74, 124, 80, 0.4));
+            border: 2px solid var(--accent-color);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .play-card h2 {
+            font-size: 1.8rem;
+            color: var(--accent-color);
+            margin-bottom: 15px;
+        }
+
+        .play-card p {
+            color: var(--text-muted);
+            margin-bottom: 25px;
+        }
+
+        .btn-play {
+            font-size: 1.3rem;
+            padding: 20px 50px;
+        }
+
+        .stats-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 25px;
+        }
+
+        .stats-card h3 {
+            color: var(--accent-color);
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+        }
+
+        .stat-value {
+            color: var(--text-light);
+            font-weight: bold;
+        }
+
+        .leaderboard-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 25px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .leaderboard-card h3 {
+            color: var(--accent-color);
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+        }
+
+        .leaderboard-row {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .leaderboard-row.top-3 {
+            background: rgba(212, 175, 55, 0.1);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+        }
+
+        .leaderboard-position {
+            width: 30px;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        .leaderboard-name {
+            flex: 1;
+            margin-left: 10px;
+        }
+
+        .leaderboard-points {
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        .admin-link {
+            background: rgba(220, 53, 69, 0.2);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            margin-left: 10px;
+        }
+
+        .admin-link:hover {
+            background: rgba(220, 53, 69, 0.4);
+        }
+
+        @media (max-width: 900px) {
+            .lobby-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .lobby-header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="lobby-container">
+        <header class="lobby-header">
+            <h1 class="lobby-title">Rikiki Lobby</h1>
+            <div class="user-info">
+                <span class="user-name" id="user-name">Betöltés...</span>
+                <button class="btn btn-secondary btn-small" onclick="logout()">Kijelentkezés</button>
+                <a href="/admin" class="btn btn-small admin-link" id="admin-btn" style="display: none;">Admin</a>
+            </div>
+        </header>
+
+        <div class="lobby-content">
+            <div class="main-panel">
+                <div class="play-card">
+                    <h2>Játék indítása</h2>
+                    <p>Csatlakozz egy szobához vagy hozz létre újat. Az AI játékosok automatikusan kiegészítik a létszámot.</p>
+                    <button class="btn btn-primary btn-play" onclick="startGame()">Játék!</button>
+                </div>
+
+                <div class="stats-card">
+                    <h3>Statisztikáid</h3>
+                    <div id="user-stats">
+                        <div class="stat-row">
+                            <span class="stat-label">Lejátszott játékok</span>
+                            <span class="stat-value" id="stat-games">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Győzelmek</span>
+                            <span class="stat-value" id="stat-wins">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Összes pont</span>
+                            <span class="stat-value" id="stat-score">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Legjobb eredmény</span>
+                            <span class="stat-value" id="stat-best">0</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Rang pontok</span>
+                            <span class="stat-value" id="stat-rank">1000</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="leaderboard-card">
+                <h3>Ranglista</h3>
+                <div id="leaderboard">
+                    <p style="color: var(--text-muted);">Betöltés...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        async function init() {
+            try {
+                // Felhasználó adatok lekérése
+                const userRes = await fetch('/api/me');
+                if (!userRes.ok) {
+                    window.location.href = '/login';
+                    return;
+                }
+
+                const userData = await userRes.json();
+                currentUser = userData.user;
+
+                document.getElementById('user-name').textContent = currentUser.displayName;
+
+                if (currentUser.is_admin) {
+                    document.getElementById('admin-btn').style.display = 'inline-block';
+                }
+
+                // Ranglista betöltése
+                loadLeaderboard();
+
+            } catch (error) {
+                console.error('Hiba:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        async function loadLeaderboard() {
+            try {
+                const res = await fetch('/api/leaderboard');
+                const data = await res.json();
+
+                const container = document.getElementById('leaderboard');
+
+                if (data.length === 0) {
+                    container.innerHTML = '<p style="color: var(--text-muted);">Még nincs adat a ranglistán.</p>';
+                    return;
+                }
+
+                // Saját statisztikák frissítése a ranglistából
+                const myStats = data.find(r => r.user_id === currentUser.id);
+                if (myStats) {
+                    document.getElementById('stat-games').textContent = myStats.games_played;
+                    document.getElementById('stat-wins').textContent = myStats.games_won;
+                    document.getElementById('stat-score').textContent = myStats.total_score;
+                    document.getElementById('stat-best').textContent = myStats.highest_score;
+                    document.getElementById('stat-rank').textContent = myStats.rank_points;
+                }
+
+                container.innerHTML = data.map((row, i) => {
+                    const medal = i === 0 ? '&#129351;' : i === 1 ? '&#129352;' : i === 2 ? '&#129353;' : '';
+                    const topClass = i < 3 ? 'top-3' : '';
+
+                    return `
+                        <div class="leaderboard-row ${topClass}">
+                            <span class="leaderboard-position">${medal || (i + 1) + '.'}</span>
+                            <span class="leaderboard-name">${row.display_name || 'Névtelen'}</span>
+                            <span class="leaderboard-points">${row.rank_points}</span>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (error) {
+                console.error('Ranglista hiba:', error);
+            }
+        }
+
+        function startGame() {
+            window.location.href = '/game';
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login';
+            } catch (error) {
+                console.error('Kijelentkezési hiba:', error);
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

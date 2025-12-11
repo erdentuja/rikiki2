@@ -16,6 +16,19 @@ async function initDatabase() {
     const connection = await pool.getConnection();
 
     try {
+        // Felhasználók tábla (bejelentkezés/regisztráció)
+        await connection.execute(`
+            CREATE TABLE IF NOT EXISTS rikiki_users (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                username VARCHAR(50) UNIQUE NOT NULL,
+                password VARCHAR(255) NOT NULL,
+                display_name VARCHAR(100) NOT NULL,
+                is_admin BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_login TIMESTAMP NULL
+            )
+        `);
+
         // Játék beállítások tábla
         await connection.execute(`
             CREATE TABLE IF NOT EXISTS rikiki_settings (

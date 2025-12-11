@@ -129,9 +129,9 @@ class RikikiGame {
                 this.showToast('Sikeresen kiléptél a játékból.');
                 this.gameState = null;
                 this.playerId = null;
-                // Újracsatlakozás (új szoba)
+                // Vissza a lobbyba
                 setTimeout(() => {
-                    location.reload();
+                    window.location.href = '/lobby';
                 }, 1000);
                 break;
 
@@ -815,11 +815,11 @@ class RikikiGame {
                     ${rankingsHtml}
                 </div>
                 <div class="game-end-buttons">
-                    <button class="btn btn-primary" onclick="game.leaveGame()">
-                        ✘ Kilépés a lobbyba
+                    <button class="btn btn-primary" onclick="window.location.href='/lobby'">
+                        Vissza a Lobbyba
                     </button>
                     <button class="btn btn-secondary" onclick="location.reload()" style="margin-left: 10px;">
-                        🔄 Új játék
+                        Új játék
                     </button>
                 </div>
             </div>
